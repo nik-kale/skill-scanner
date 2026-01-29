@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "cisco-ai-skill-scanner"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Security scanner for Claude Skills and Codex Skills packages - Detects prompt injection, data exfiltration, and malicious code"
 authors = [
     {name = "Cisco"},
@@ -110,11 +110,14 @@ skill-scanner = "skillanalyzer.cli.cli:main"
 skill-scanner-api = "skillanalyzer.api.api_cli:main"
 skill-scanner-pre-commit = "skillanalyzer.hooks.pre_commit:main"
 
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "skillanalyzer/_version.py"
+
 [tool.hatch.build.targets.wheel]
 packages = ["skillanalyzer"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"skillanalyzer/data" = "skillanalyzer/data"
 
 [tool.ruff]
 line-length = 120
