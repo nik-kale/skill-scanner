@@ -132,7 +132,7 @@ print(f"Findings: {len(result.findings)}")
 
 ---
 
-## Security Analyzers
+## Analyzers
 
 | Analyzer | Detection Method | Scope | Requirements |
 |----------|------------------|-------|--------------|
@@ -142,6 +142,7 @@ print(f"Findings: {len(result.findings)}")
 | **Meta** | False positive filtering | All findings | API key |
 | **VirusTotal** | Hash-based malware | Binary files | API key |
 | **AI Defense** | Cloud-based AI | Text content | API key |
+| **Readiness** | Best practices heuristics | SKILL.md + scripts | None |
 
 ---
 
@@ -153,6 +154,7 @@ print(f"Findings: {len(result.findings)}")
 | `--use-llm` | Enable LLM analyzer (requires API key) |
 | `--use-virustotal` | Enable VirusTotal binary scanner |
 | `--use-aidefense` | Enable Cisco AI Defense analyzer |
+| `--use-readiness` | Enable readiness analyzer (operational quality checks) |
 | `--enable-meta` | Enable meta-analyzer for false positive filtering |
 | `--format` | Output: `summary`, `json`, `markdown`, `table`, `sarif` |
 | `--output PATH` | Save report to file |
