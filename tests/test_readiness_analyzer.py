@@ -76,7 +76,7 @@ Content here.
         findings = analyzer.analyze(skill)
         trigger_findings = [f for f in findings if f.rule_id == "SRDNS-005"]
         assert len(trigger_findings) == 1
-        assert trigger_findings[0].severity == Severity.HIGH
+        assert trigger_findings[0].severity == Severity.MEDIUM
 
     def test_first_person_description(self, analyzer, loader):
         content = """---

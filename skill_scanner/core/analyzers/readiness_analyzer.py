@@ -30,9 +30,9 @@ except ImportError:
 
 class ReadinessAnalyzer(BaseAnalyzer):
     MAX_LINES = 500
-    MAX_TOKENS = 2000
+    MAX_TOKENS = 4000
     MIN_DESCRIPTION_LENGTH = 50
-    MAX_INLINE_CODE_LINES = 50
+    MAX_INLINE_CODE_LINES = 100
 
     TRIGGER_PATTERNS = [
         r"\buse when\b",
@@ -41,6 +41,12 @@ class ReadinessAnalyzer(BaseAnalyzer):
         r"\bwhen you need\b",
         r"\bif the user\b",
         r"\bfor\s+\w+\s+tasks\b",
+        r"\bhelps? (you )?(to )?",
+        r"\bdesigned (for|to)\b",
+        r"\bused (for|to|when)\b",
+        r"\benables?\b",
+        r"\bprovides?\b",
+        r"\bassists? (with|in)\b",
     ]
 
     FIRST_SECOND_PERSON_PATTERNS = [
@@ -51,13 +57,6 @@ class ReadinessAnalyzer(BaseAnalyzer):
         r"\byou will\b",
         r"\byou should\b",
         r"\byour\b",
-    ]
-
-    TERMINOLOGY_GROUPS = [
-        ["api endpoint", "url", "route", "path", "uri"],
-        ["field", "box", "element", "control", "input"],
-        ["function", "method", "procedure", "routine"],
-        ["file", "document", "asset", "resource"],
     ]
 
     def __init__(self):
@@ -74,7 +73,6 @@ class ReadinessAnalyzer(BaseAnalyzer):
         findings.extend(self._check_description_length(skill))
         findings.extend(self._check_name_format(skill))
         findings.extend(self._check_reference_depth(skill))
-        findings.extend(self._check_terminology_consistency(skill))
         findings.extend(self._check_conflicting_instructions(skill))
         findings.extend(self._check_python_error_handling(skill))
         findings.extend(self._check_shell_error_handling(skill))
@@ -192,7 +190,7 @@ class ReadinessAnalyzer(BaseAnalyzer):
             return [
                 self._make_finding(
                     rule_id="SRDNS-005",
-                    severity=Severity.HIGH,
+                    severity=Severity.MEDIUM,
                     title="Description missing activation context",
                     description='Description lacks "Use when..." clause or similar trigger context',
                     file_path="SKILL.md",
@@ -282,28 +280,6 @@ class ReadinessAnalyzer(BaseAnalyzer):
                     remediation="Keep references one level deep from SKILL.md",
                 )
             ]
-        return []
-
-    def _check_terminology_consistency(self, skill: Skill) -> list[Finding]:
-        full_content = f"{skill.description}\n{skill.instruction_body}"
-        content_lower = full_content.lower()
-        for term_group in self.TERMINOLOGY_GROUPS:
-            found_terms: list[str] = []
-            for term in term_group:
-                if term in content_lower:
-                    found_terms.append(term)
-            if len(found_terms) > 1:
-                return [
-                    self._make_finding(
-                        rule_id="SRDNS-012",
-                        severity=Severity.LOW,
-                        title="Mixed terminology detected",
-                        description=f"Multiple terms used for same concept: {', '.join(found_terms)}",
-                        file_path="SKILL.md",
-                        snippet=f"Found: {', '.join(found_terms)}",
-                        remediation="Choose one term and use it consistently throughout",
-                    )
-                ]
         return []
 
     def _check_conflicting_instructions(self, skill: Skill) -> list[Finding]:
