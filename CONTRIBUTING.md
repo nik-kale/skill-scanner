@@ -65,7 +65,7 @@ you can do:
   _[Reporting Issues](#reporting-issues)_ section, providing feedback to the
   issue's author on what might be missing.
 - Review and update the existing content of our
-  [Wiki](https://github.com/cisco-ai-defense/skill-scanner/wiki) with up-to-date
+  [Wiki](https://deepwiki.com/cisco-ai-defense/skill-scanner) with up-to-date
   instructions and code samples.
 - Review existing pull requests, and testing patches against real existing
   applications that use `skill-scanner`.
