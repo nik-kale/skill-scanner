@@ -167,6 +167,15 @@ def test_sarif_reporter_location_fallback_to_skill_md(scan_result):
         assert uri, "Location URI must not be empty"
 
 
+def test_sarif_reporter_preserves_per_finding_remediation(malicious_scan_result):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(malicious_scan_result)
+    data = json.loads(output)
+    results = data["runs"][0]["results"]
+    results_with_remediation = [r for r in results if "remediation" in r.get("properties", {})]
+    assert len(results_with_remediation) > 0
+
+
 def test_sarif_reporter_multi_skill(report):
     reporter = SARIFReporter()
     output = reporter.generate_report(report)

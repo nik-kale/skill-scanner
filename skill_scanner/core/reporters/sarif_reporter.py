@@ -188,6 +188,7 @@ class SARIFReporter:
                 "properties": {
                     "category": finding.category.value,
                     "severity": finding.severity.value,
+                    **({"remediation": finding.remediation} if finding.remediation else {}),
                 },
             }
 
