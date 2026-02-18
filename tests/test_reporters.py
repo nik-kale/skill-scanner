@@ -25,6 +25,7 @@ import pytest
 
 from skill_scanner.core.reporters.json_reporter import JSONReporter
 from skill_scanner.core.reporters.markdown_reporter import MarkdownReporter
+from skill_scanner.core.reporters.sarif_reporter import SARIFReporter
 from skill_scanner.core.reporters.table_reporter import TableReporter
 from skill_scanner.core.scanner import SkillScanner, scan_skill
 
@@ -109,3 +110,69 @@ def test_table_reporter_multi_skill(report):
 
     # Should show all scanned skills
     assert report.total_skills_scanned > 0
+
+
+@pytest.fixture
+def malicious_scan_result(example_skills_dir):
+    """Get a scan result with findings for testing."""
+    skill_dir = example_skills_dir / "malicious" / "prompt-injection"
+    return scan_skill(skill_dir)
+
+
+def test_sarif_reporter_valid_json(scan_result):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(scan_result)
+    data = json.loads(output)
+    assert data["version"] == "2.1.0"
+    assert "$schema" in data
+    assert "runs" in data
+    assert len(data["runs"]) > 0
+
+
+def test_sarif_reporter_results_always_have_locations(malicious_scan_result):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(malicious_scan_result)
+    data = json.loads(output)
+    results = data["runs"][0]["results"]
+    assert len(results) > 0
+    for result in results:
+        assert "locations" in result, f"Result for {result['ruleId']} missing locations"
+        assert len(result["locations"]) > 0
+        loc = result["locations"][0]
+        assert "physicalLocation" in loc
+        assert "artifactLocation" in loc["physicalLocation"]
+        assert "uri" in loc["physicalLocation"]["artifactLocation"]
+
+
+def test_sarif_reporter_no_fixes_property(malicious_scan_result):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(malicious_scan_result)
+    data = json.loads(output)
+    results = data["runs"][0]["results"]
+    for result in results:
+        assert "fixes" not in result, (
+            f"Result for {result['ruleId']} has 'fixes' property "
+            "(remediation belongs in rule 'help', not result 'fixes')"
+        )
+
+
+def test_sarif_reporter_location_fallback_to_skill_md(scan_result):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(scan_result)
+    data = json.loads(output)
+    results = data["runs"][0]["results"]
+    for result in results:
+        assert "locations" in result
+        uri = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+        assert uri, "Location URI must not be empty"
+
+
+def test_sarif_reporter_multi_skill(report):
+    reporter = SARIFReporter()
+    output = reporter.generate_report(report)
+    data = json.loads(output)
+    assert data["version"] == "2.1.0"
+    results = data["runs"][0]["results"]
+    for result in results:
+        assert "locations" in result
+        assert "fixes" not in result

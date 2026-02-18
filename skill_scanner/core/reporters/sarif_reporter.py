@@ -191,38 +191,26 @@ class SARIFReporter:
                 },
             }
 
-            # Add location if file path is available
-            if finding.file_path:
-                location = {
-                    "physicalLocation": {
-                        "artifactLocation": {
-                            "uri": finding.file_path,
-                            "uriBaseId": "%SRCROOT%",
-                        },
-                    }
+            artifact_uri = finding.file_path if finding.file_path else "SKILL.md"
+            location = {
+                "physicalLocation": {
+                    "artifactLocation": {
+                        "uri": artifact_uri,
+                        "uriBaseId": "%SRCROOT%",
+                    },
                 }
+            }
 
-                # Add region if line number is available
-                if finding.line_number:
-                    location["physicalLocation"]["region"] = {
-                        "startLine": finding.line_number,
+            if finding.line_number:
+                location["physicalLocation"]["region"] = {
+                    "startLine": finding.line_number,
+                }
+                if finding.snippet:
+                    location["physicalLocation"]["region"]["snippet"] = {
+                        "text": finding.snippet,
                     }
-                    if finding.snippet:
-                        location["physicalLocation"]["region"]["snippet"] = {
-                            "text": finding.snippet,
-                        }
 
-                result["locations"] = [location]
-
-            # Add fixes/remediation if available
-            if finding.remediation:
-                result["fixes"] = [
-                    {
-                        "description": {
-                            "text": finding.remediation,
-                        }
-                    }
-                ]
+            result["locations"] = [location]
 
             # Add fingerprint for deduplication
             result["fingerprints"] = {
