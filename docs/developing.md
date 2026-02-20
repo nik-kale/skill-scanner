@@ -84,9 +84,16 @@ uv run pre-commit run --all-files
 
 This runs:
 - **ruff**: Linting and formatting
-- **mypy**: Type checking (if configured)
+- **pre-commit-hooks**: Whitespace, file, and config hygiene checks
 - **gitleaks**: Secret detection
 - **addlicense**: Apache 2.0 license headers
+- **check-taxonomy**: Validates taxonomy enum parity with Cisco taxonomy profile
+
+Run mypy separately:
+
+```bash
+uv run mypy skill_scanner
+```
 
 ### Before Submitting a PR
 
@@ -102,20 +109,29 @@ This runs:
 skill_scanner/
 ├── __init__.py
 ├── api/               # FastAPI REST endpoints
-├── cli/               # Click CLI interface
+├── cli/               # argparse-based CLI commands and policy TUI
 ├── config/            # Configuration and constants
 ├── core/
-│   ├── analyzers/     # Security analyzers (static, behavioral, LLM)
+│   ├── analyzers/     # Security analyzers (static, bytecode, pipeline, behavioral, LLM)
 │   ├── reporters/     # Output formatters (JSON, SARIF, Markdown)
-│   ├── rules/         # YARA and pattern rules
+│   ├── rules/         # Rule loaders (patterns.py, yara_scanner.py)
+│   ├── rule_registry.py  # Centralized rule registry and pack loader
 │   ├── static_analysis/  # AST parsing and dataflow analysis
 │   ├── loader.py      # Skill package loader
 │   ├── models.py      # Data models
+│   ├── scan_policy.py # Policy engine (single source of truth for all knobs)
 │   └── scanner.py     # Main scanner orchestrator
 ├── data/
-│   ├── prompts/       # LLM analysis prompts
-│   ├── rules/         # YAML detection rules
-│   └── yara_rules/    # YARA detection rules
+│   ├── packs/
+│   │   └── core/
+│   │       ├── pack.yaml       # Rule pack manifest
+│   │       ├── signatures/     # YAML regex detection rules
+│   │       ├── yara/           # YARA detection rules
+│   │       └── python/         # Python check modules
+│   ├── prompts/                # LLM analysis prompts
+│   ├── default_policy.yaml     # Balanced policy preset
+│   ├── strict_policy.yaml      # Strict policy preset
+│   └── permissive_policy.yaml  # Permissive policy preset
 ├── hooks/             # Pre-commit hooks
 ├── threats/           # Threat taxonomy
 └── utils/             # Shared utilities
@@ -123,14 +139,15 @@ tests/
 ├── conftest.py        # Shared fixtures
 └── test_*.py          # Test files
 evals/
-├── skills/            # Evaluation skill samples
-└── benchmark_runner.py
+├── runners/           # Benchmark and eval runners
+├── policies/          # Policy presets for benchmarking
+└── skills/            # Evaluation skill samples
 ```
 
 ## Running Individual Analyzers
 
 ```bash
-# Static analysis only (default)
+# Core analyzers only (default: static + bytecode + pipeline)
 skill-scanner scan /path/to/skill
 
 # With behavioral analysis
@@ -139,8 +156,14 @@ skill-scanner scan /path/to/skill --use-behavioral
 # With LLM analysis (requires API key)
 skill-scanner scan /path/to/skill --use-llm
 
+# With trigger specificity analysis
+skill-scanner scan /path/to/skill --use-trigger
+
 # All analyzers
 skill-scanner scan /path/to/skill --use-behavioral --use-llm --use-virustotal
+
+# Cross-skill overlap analysis
+skill-scanner scan-all /path/to/skills --check-overlap
 ```
 
 ## Versioning

@@ -12,9 +12,9 @@ The Skill Scanner API Server provides a REST interface for uploading and scannin
 - **CLI is primary**: For most use cases, the CLI is the recommended interface
 
 **Technology**: FastAPI with async support
-**Endpoints**: 6 REST endpoints
+**Endpoints**: 7 REST endpoints
 **Documentation**: Auto-generated Swagger/ReDoc
-**Status**: Production ready
+**Status**: Actively maintained
 
 ## Warnings
 
@@ -41,12 +41,29 @@ skill-scanner-api --host 127.0.0.1 --port 9000
 ### Programmatic
 
 ```python
-from skill_scanner.api_server import run_server
+from skill_scanner.api.api_server import run_server
 
 run_server(host="127.0.0.1", port=8000, reload=False)
 ```
 
 ## Endpoints
+
+### Root
+
+```http
+GET /
+```
+
+Returns service metadata and links:
+
+```json
+{
+  "service": "Skill Scanner API",
+  "version": "<installed-package-version>",
+  "docs": "/docs",
+  "health": "/health"
+}
+```
 
 ### Health Check
 
@@ -61,11 +78,16 @@ Returns server status and available analyzers.
 ```json
 {
   "status": "healthy",
-  "version": "0.2.0",
+  "version": "<installed-package-version>",
   "analyzers_available": [
     "static_analyzer",
+    "bytecode_analyzer",
+    "pipeline_analyzer",
     "behavioral_analyzer",
     "llm_analyzer",
+    "virustotal_analyzer",
+    "trigger_analyzer",
+    "meta_analyzer",
     "aidefense_analyzer"
   ]
 }
@@ -79,24 +101,44 @@ Content-Type: application/json
 
 {
   "skill_directory": "/path/to/skill",
+  "policy": "balanced",
+  "custom_rules": null,
   "use_behavioral": false,
   "use_llm": false,
   "llm_provider": "anthropic",
+  "use_virustotal": false,
+  "vt_api_key": null,
+  "vt_upload_files": false,
+  "use_trigger": false,
+  "enable_meta": false,
+  "llm_consensus_runs": 1,
   "use_aidefense": false,
-  "aidefense_api_key": null
+  "aidefense_api_key": null,
+  "aidefense_api_url": null
 }
 ```
 
 **Request Parameters:**
 
-| Parameter           | Type    | Default     | Description                                              |
-| ------------------- | ------- | ----------- | -------------------------------------------------------- |
-| `skill_directory`   | string  | required    | Path to skill directory                                  |
-| `use_behavioral`    | boolean | false       | Enable behavioral dataflow analyzer                      |
-| `use_llm`           | boolean | false       | Enable LLM semantic analyzer                             |
-| `llm_provider`      | string  | "anthropic" | LLM provider (anthropic, openai, azure, bedrock, gemini) |
-| `use_aidefense`     | boolean | false       | Enable Cisco AI Defense analyzer                         |
-| `aidefense_api_key` | string  | null        | AI Defense API key (or set `AI_DEFENSE_API_KEY` env var) |
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `skill_directory` | string | required | Path to skill directory |
+| `policy` | string | null | Scan policy: preset name (`strict`, `balanced`, `permissive`) or path to custom YAML |
+| `custom_rules` | string | null | Path to custom YARA rules directory |
+| `use_behavioral` | boolean | false | Enable behavioral dataflow analyzer |
+| `use_llm` | boolean | false | Enable LLM semantic analyzer |
+| `llm_provider` | string | `"anthropic"` | LLM provider shortcut (`anthropic` or `openai`) |
+| `llm_consensus_runs` | integer | `1` | Number of LLM passes for majority voting |
+| `use_virustotal` | boolean | false | Enable VirusTotal binary analyzer |
+| `vt_api_key` | string | null | VirusTotal API key (or set `VIRUSTOTAL_API_KEY`) |
+| `vt_upload_files` | boolean | false | Upload unknown binaries to VirusTotal |
+| `use_aidefense` | boolean | false | Enable Cisco AI Defense analyzer |
+| `aidefense_api_key` | string | null | AI Defense API key (or set `AI_DEFENSE_API_KEY`) |
+| `aidefense_api_url` | string | null | Optional AI Defense API URL override |
+| `use_trigger` | boolean | false | Enable trigger specificity analyzer |
+| `enable_meta` | boolean | false | Enable meta-analyzer false-positive filtering |
+
+For Bedrock, Vertex, Azure, Gemini, and other LiteLLM backends, configure `SKILL_SCANNER_LLM_MODEL`/provider environment variables instead of relying on the `llm_provider` shortcut.
 
 **Response:**
 
@@ -122,11 +164,21 @@ POST /scan-upload
 Content-Type: multipart/form-data
 
 file: skill.zip
+policy: balanced
 use_llm: false
 llm_provider: anthropic
 ```
 
 Uploads a ZIP file containing a skill package and scans it. The ZIP file is extracted to a temporary directory, scanned, and then cleaned up.
+
+`/scan-upload` accepts the same optional scan flags as `/scan`, but as **multipart form fields** (not query params).
+
+**Form Fields:**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `file` | file (`.zip`) | yes | ZIP archive containing a skill |
+| `policy`, `custom_rules`, `use_behavioral`, `use_llm`, `llm_provider`, `llm_consensus_runs`, `use_virustotal`, `vt_api_key`, `vt_upload_files`, `use_aidefense`, `aidefense_api_key`, `aidefense_api_url`, `use_trigger`, `enable_meta` | mixed | no | Same semantics as `/scan` |
 
 **Response:** Same as `/scan`
 
@@ -138,14 +190,32 @@ Content-Type: application/json
 
 {
   "skills_directory": "/path/to/skills",
+  "policy": "balanced",
+  "custom_rules": null,
   "recursive": false,
+  "check_overlap": false,
   "use_behavioral": false,
   "use_llm": false,
   "llm_provider": "anthropic",
+  "use_virustotal": false,
+  "vt_api_key": null,
+  "vt_upload_files": false,
+  "use_trigger": false,
+  "enable_meta": false,
+  "llm_consensus_runs": 1,
   "use_aidefense": false,
-  "aidefense_api_key": null
+  "aidefense_api_key": null,
+  "aidefense_api_url": null
 }
 ```
+
+`/scan-batch` supports the same optional analyzer fields as `/scan`, plus:
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `skills_directory` | string | required | Directory containing skills |
+| `recursive` | boolean | false | Recursively search for skills |
+| `check_overlap` | boolean | false | Enable cross-skill description overlap analysis |
 
 **Response:**
 
@@ -203,7 +273,17 @@ GET /analyzers
       "name": "static_analyzer",
       "description": "Pattern-based detection using YAML and YARA rules",
       "available": true,
-      "rules_count": "40+"
+      "rules_count": "90+"
+    },
+    {
+      "name": "bytecode_analyzer",
+      "description": "Python bytecode integrity verification against source",
+      "available": true
+    },
+    {
+      "name": "pipeline_analyzer",
+      "description": "Command pipeline taint analysis for data exfiltration",
+      "available": true
     },
     {
       "name": "behavioral_analyzer",
@@ -221,6 +301,23 @@ GET /analyzers
       "description": "Cisco AI Defense cloud-based threat detection",
       "available": true,
       "requires_api_key": true
+    },
+    {
+      "name": "virustotal_analyzer",
+      "description": "Hash-based malware detection for binary files via VirusTotal",
+      "available": true,
+      "requires_api_key": true
+    },
+    {
+      "name": "trigger_analyzer",
+      "description": "Trigger specificity analysis for overly generic descriptions",
+      "available": true
+    },
+    {
+      "name": "meta_analyzer",
+      "description": "Second-pass LLM analysis for false positive filtering",
+      "available": true,
+      "requires": "2+ analyzers, LLM API key"
     }
   ]
 }
@@ -241,11 +338,27 @@ When the server is running, visit:
 # Health check
 curl http://localhost:8000/health
 
-# Scan skill (static only)
+# Scan skill (default analyzers, balanced policy)
 curl -X POST http://localhost:8000/scan \
   -H "Content-Type: application/json" \
   -d '{
     "skill_directory": "/path/to/skill"
+  }'
+
+# Scan with strict policy
+curl -X POST http://localhost:8000/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "skill_directory": "/path/to/skill",
+    "policy": "strict"
+  }'
+
+# Scan with custom policy YAML
+curl -X POST http://localhost:8000/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "skill_directory": "/path/to/skill",
+    "policy": "/path/to/my_policy.yaml"
   }'
 
 # Scan with all analyzers
@@ -253,6 +366,7 @@ curl -X POST http://localhost:8000/scan \
   -H "Content-Type: application/json" \
   -d '{
     "skill_directory": "/path/to/skill",
+    "policy": "balanced",
     "use_behavioral": true,
     "use_llm": true,
     "llm_provider": "anthropic",
@@ -286,11 +400,12 @@ curl http://localhost:8000/scan-batch/{scan_id}
 ```python
 import requests
 
-# Scan skill
+# Scan skill with strict policy
 response = requests.post(
     "http://localhost:8000/scan",
     json={
         "skill_directory": "/path/to/skill",
+        "policy": "strict",
         "use_llm": True,
         "llm_provider": "anthropic"
     }
@@ -382,25 +497,27 @@ export ANTHROPIC_API_BASE=https://your-endpoint.com/anthropic
 
 # Cisco AI Defense (for aidefense analyzer)
 export AI_DEFENSE_API_KEY=your_key
-
-# Server settings (optional)
-export API_HOST=localhost
-export API_PORT=8000
 ```
+
+Server bind settings are controlled by CLI flags (`--host`, `--port`) when launching `skill-scanner-api`.
 
 ### CORS (for web apps)
 
-To enable CORS, modify `api_server.py`:
+To enable CORS, create a wrapper that imports the app from the router module and adds middleware:
 
 ```python
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from skill_scanner.api.router import router
 
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(router)
 ```
 
 ## CI/CD Integration
@@ -420,7 +537,7 @@ jobs:
 
       - name: Start API Server
         run: |
-          pip install -r requirements.txt
+          pip install cisco-ai-skill-scanner
           skill-scanner-api &
           sleep 5
 
@@ -460,14 +577,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
+COPY pyproject.toml .
 COPY skill_scanner/ ./skill_scanner/
+
+RUN pip install .
 
 EXPOSE 8000
 
-CMD ["python", "-m", "skill_scanner.api_cli", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["skill-scanner-api", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ```bash
@@ -487,8 +604,9 @@ docker run -p 8000:8000 \
 | ----------- | ------------------- | --------------------------------------- |
 | 400         | Invalid request     | Check JSON format and required fields   |
 | 404         | Skill not found     | Verify directory path exists            |
+| 413         | Upload too large    | Reduce ZIP size below upload limit      |
+| 422         | Validation error    | Check field names/types in request body |
 | 500         | Scan failed         | Check logs for detailed error           |
-| 503         | Service unavailable | Server may be overloaded or starting up |
 
 ### Error Response Format
 
